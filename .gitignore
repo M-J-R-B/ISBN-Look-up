@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 .env
+api/request_tracker.json
