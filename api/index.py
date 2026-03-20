@@ -4,11 +4,16 @@ import os
 import json
 from datetime import date
 import re
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
 
 app = Flask(__name__, template_folder='../templates')
 
-# Request tracker file
-TRACKER_FILE = os.path.join(os.path.dirname(__file__), 'request_tracker.json')
+# Request tracker file - use absolute path for reliability
+TRACKER_DIR = os.path.dirname(os.path.abspath(__file__))
+TRACKER_FILE = os.path.join(TRACKER_DIR, 'request_tracker.json')
 GOOGLE_DAILY_LIMIT = 1000
 
 # Google Books API key (set as environment variable for production)
@@ -33,8 +38,8 @@ def save_tracker(tracker):
     try:
         with open(TRACKER_FILE, 'w') as f:
             json.dump(tracker, f)
-    except:
-        pass
+    except Exception as e:
+        print(f"Error saving tracker: {e}")
 
 def get_tracker_stats():
     """Get current tracker statistics"""
@@ -59,7 +64,7 @@ def get_book_from_google(isbn):
         return None, "Google API daily limit reached"
 
     url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={GOOGLE_API_KEY}"
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, timeout=(3, 5))
     data = response.json()
 
     # Update tracker
@@ -71,14 +76,19 @@ def get_book_from_google(isbn):
 
     book = data['items'][0]['volumeInfo']
 
-    # Get cover image (prefer large)
+    # Get cover image - use Google's actual sizes (no zoom hack)
     cover_url = ''
     if 'imageLinks' in book:
-        cover_url = book['imageLinks'].get('thumbnail', '')
-        # Try to get larger image
-        cover_url = cover_url.replace('zoom=1', 'zoom=3').replace('&edge=curl', '')
-        # Use https
+        # Prefer larger images if available
+        cover_url = book['imageLinks'].get('large',
+                    book['imageLinks'].get('medium',
+                    book['imageLinks'].get('thumbnail', '')))
+        cover_url = cover_url.replace('&edge=curl', '')
         cover_url = cover_url.replace('http://', 'https://')
+
+    # Fallback to Open Library cover if no Google cover
+    if not cover_url:
+        cover_url = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
 
     result = {
         'title': book.get('title', 'Unknown Title'),
@@ -109,7 +119,7 @@ def get_book_from_openlibrary(isbn):
     tracker = load_tracker()
 
     url = f"https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data"
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, timeout=(3, 5))
     data = response.json()
 
     # Update tracker
