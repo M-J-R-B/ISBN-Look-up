@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISBN Lookup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding-top: 50px;
+        }
+        .result-container {
+            max-width: 900px;
+            margin: 30px auto;
+        }
+        .cover-img {
+            max-width: 300px;
+            max-height: 450px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .copy-btn {
+            padding: 2px 8px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .detail-row {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+            min-width: 140px;
+        }
+        .detail-value {
+            flex: 1;
+            word-break: break-word;
+        }
+        .image-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .copy-success {
+            background-color: #198754 !important;
+            border-color: #198754 !important;
+            color: white !important;
+        }
+        .hero-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+        .subjects-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .subject-badge {
+            background-color: #e9ecef;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Search Section -->
+        <div class="search-container text-center">
+            <h1 class="hero-title mb-4"><i class="bi bi-book"></i> ISBN Lookup</h1>
+            <form method="POST" class="mb-4">
+                <div class="input-group input-group-lg">
+                    <input type="text"
+                           class="form-control"
+                           name="isbn"
+                           placeholder="Enter ISBN (e.g., 9780316769488)"
+                           value="{{ request.form.get('isbn', '') }}"
+                           autofocus>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+            </form>
+
+            {% if error %}
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-circle"></i> {{ error }}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Results Section -->
+        {% if book %}
+        <div class="result-container">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Cover Image Column -->
+                        <div class="col-md-4 text-center mb-4">
+                            <img src="{{ book.cover_url }}"
+                                 alt="Book Cover"
+                                 class="cover-img mb-3"
+                                 id="coverImage"
+                                 onerror="this.src='https://via.placeholder.com/300x450?text=No+Cover'">
+                            <div class="image-actions justify-content-center">
+                                <button class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('{{ book.cover_url }}', this)">
+                                    <i class="bi bi-link-45deg"></i> Copy URL
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="saveImage('{{ book.cover_url }}', '{{ book.title }}')">
+                                    <i class="bi bi-download"></i> Save Image
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Details Column -->
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h2 class="mb-0" id="bookTitle">{{ book.title }}</h2>
+                                <button class="btn btn-primary" onclick="copyAllDetails()">
+                                    <i class="bi bi-clipboard"></i> Copy All
+                                </button>
+                            </div>
+
+                            <div class="details-list">
+                                <div class="detail-row">
+                                    <span class="detail-label">Title:</span>
+                                    <span class="detail-value" id="title">{{ book.title }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('title', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                <div class="detail-row">
+                                    <span class="detail-label">Author(s):</span>
+                                    <span class="detail-value" id="authors">{{ book.authors }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('authors', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                <div class="detail-row">
+                                    <span class="detail-label">Publisher:</span>
+                                    <span class="detail-value" id="publishers">{{ book.publishers }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('publishers', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                <div class="detail-row">
+                                    <span class="detail-label">Publication Date:</span>
+                                    <span class="detail-value" id="publish_date">{{ book.publish_date }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('publish_date', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                {% if book.copyright %}
+                                <div class="detail-row">
+                                    <span class="detail-label">Copyright:</span>
+                                    <span class="detail-value" id="copyright">{{ book.copyright }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('copyright', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                {% if book.edition %}
+                                <div class="detail-row">
+                                    <span class="detail-label">Edition:</span>
+                                    <span class="detail-value" id="edition">{{ book.edition }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('edition', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                {% if book.volume %}
+                                <div class="detail-row">
+                                    <span class="detail-label">Volume:</span>
+                                    <span class="detail-value" id="volume">{{ book.volume }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('volume', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                <div class="detail-row">
+                                    <span class="detail-label">Pages:</span>
+                                    <span class="detail-value" id="pages">{{ book.number_of_pages }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('pages', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                {% if book.physical_format %}
+                                <div class="detail-row">
+                                    <span class="detail-label">Format:</span>
+                                    <span class="detail-value" id="format">{{ book.physical_format }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('format', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+
+                                <div class="detail-row">
+                                    <span class="detail-label">ISBN:</span>
+                                    <span class="detail-value" id="isbn">{{ book.isbn }}</span>
+                                    <button class="btn btn-outline-secondary copy-btn" onclick="copyField('isbn', this)">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+
+                                {% if book.subjects %}
+                                <div class="detail-row">
+                                    <span class="detail-label">Subjects:</span>
+                                    <div class="detail-value subjects-list">
+                                        {% for subject in book.subjects %}
+                                        <span class="subject-badge">{{ subject }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Copy a single field
+        function copyField(fieldId, btn) {
+            const element = document.getElementById(fieldId);
+            const text = element.textContent.trim();
+            copyToClipboard(text, btn);
+        }
+
+        // Copy text to clipboard
+        function copyToClipboard(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                btn.classList.add('copy-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('copy-success');
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        // Copy all details as formatted text
+        function copyAllDetails() {
+            const title = document.getElementById('title')?.textContent.trim() || '';
+            const authors = document.getElementById('authors')?.textContent.trim() || '';
+            const publishers = document.getElementById('publishers')?.textContent.trim() || '';
+            const publishDate = document.getElementById('publish_date')?.textContent.trim() || '';
+            const copyright = document.getElementById('copyright')?.textContent.trim() || '';
+            const edition = document.getElementById('edition')?.textContent.trim() || '';
+            const volume = document.getElementById('volume')?.textContent.trim() || '';
+            const pages = document.getElementById('pages')?.textContent.trim() || '';
+            const format = document.getElementById('format')?.textContent.trim() || '';
+            const isbn = document.getElementById('isbn')?.textContent.trim() || '';
+
+            let details = `Title: ${title}\n`;
+            details += `Author(s): ${authors}\n`;
+            details += `Publisher: ${publishers}\n`;
+            details += `Publication Date: ${publishDate}\n`;
+            if (copyright) details += `Copyright: ${copyright}\n`;
+            if (edition) details += `Edition: ${edition}\n`;
+            if (volume) details += `Volume: ${volume}\n`;
+            details += `Pages: ${pages}\n`;
+            if (format) details += `Format: ${format}\n`;
+            details += `ISBN: ${isbn}`;
+
+            const btn = event.target.closest('button');
+            copyToClipboard(details, btn);
+        }
+
+        // Save image to device
+        async function saveImage(imageUrl, title) {
+            try {
+                const response = await fetch(imageUrl);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Sanitize title for filename
+                const filename = title.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-') + '.jpg';
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error('Failed to save image:', err);
+                // Fallback: open in new tab
+                window.open(imageUrl, '_blank');
+            }
+        }
+    </script>
+</body>
+</html>
